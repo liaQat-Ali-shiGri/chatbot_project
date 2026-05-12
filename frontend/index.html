@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLaMA 3 Chatbot - CS619 Project</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Login Section -->
+        <div id="login-section" class="login-container">
+            <div class="login-card">
+                <h1>🤖 LLaMA 3 Chatbot</h1>
+                <p>AI-Powered Conversational Assistant</p>
+                <button id="google-login" class="login-btn">
+                    🚀 Enter Chat
+                </button>
+                <small class="login-note">Phase 1: Mock Login (real Google OAuth in Phase 2)</small>
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div id="chat-section" class="chat-container" style="display:none;">
+            <div class="chat-header">
+                <h2>🤖 LLaMA 3 Assistant</h2>
+                <button id="logout-btn" class="logout-btn">Logout</button>
+            </div>
+            
+            <div id="chat-box" class="chat-box">
+                <div class="message bot">
+                    <strong>Bot:</strong> Hello! I'm your LLaMA 3 chatbot. Ask me anything!
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <input type="text" id="user-input" placeholder="Type your message here..." class="chat-input">
+                <button id="send-btn" class="send-btn">Send</button>
+            </div>
+            
+            <!-- Feedback Panel -->
+            <div class="feedback-panel">
+                <p><strong>Rate this response:</strong></p>
+                <div class="rating-buttons">
+                    <button class="rating-btn" data-rating="good">👍 Good</button>
+                    <button class="rating-btn" data-rating="bad">👎 Bad</button>
+                </div>
+                <div class="feedback-options">
+                    <select id="correctness">
+                        <option value="correct">Correct</option>
+                        <option value="partial">Partially Correct</option>
+                        <option value="incorrect">Incorrect</option>
+                    </select>
+                    <select id="length-type">
+                        <option value="short">Too Short</option>
+                        <option value="perfect">Just Right</option>
+                        <option value="long">Too Long</option>
+                    </select>
+                    <button id="submit-feedback" class="feedback-submit">Submit Feedback</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
