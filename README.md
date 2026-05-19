@@ -1,38 +1,42 @@
-# 🤖 LLaMA 3 Chatbot - CS619 Project
+# 🤖 LLaMA Chatbot - CS619 Project
 
-An AI-powered conversational assistant built with LLaMA 3, Flask backend, and vanilla JavaScript frontend. This project integrates with Ollama for local LLM inference and MongoDB for persistent data storage.
+An AI-powered conversational assistant built with Groq API, Flask backend, and vanilla JavaScript frontend. This project integrates with Groq's multi-model API for intelligent LLM inference and MongoDB Atlas for persistent data storage.
 
 ## Features
 
 - 💬 **Real-time Chat Interface** - Clean, responsive chat UI with typing indicators
-- 🤖 **LLaMA 3 Integration** - Uses Ollama's API for local AI inference
-- 👤 **User Authentication** - Mock login system (Phase 1) with MongoDB user tracking
-- 📊 **Feedback System** - Users can rate responses (good/bad) and provide detailed feedback
-- 💾 **Chat History** - Persistent storage of conversations and user feedback
-- 🔐 **Session Management** - User sessions with secure authentication
+- 🤖 **Multi-Model LLM Integration** - Uses Groq API with intelligent model fallback (LLaMA 3.3 70B, LLaMA 3.1 8B, Mixtral 8x7b)
+- 👤 **User Authentication** - Session-based login with MongoDB user tracking
+- 📊 **Feedback System** - Users can rate responses with correctness and length preferences
+- 💾 **Chat History** - Persistent storage of conversations, sessions, and user feedback
+- 🔐 **Session Management** - Multiple conversation sessions per user with persistent storage
+- ⚡ **Response Caching** - Intelligent caching for improved performance
+- 🔄 **Smart Model Switching** - Automatic fallback to secondary models when rate limits approached
 
 ## Tech Stack
 
 ### Backend
-- **Framework**: Flask with CORS support
+- **Framework**: Flask 2.3.0 with CORS support
 - **Database**: MongoDB Atlas
-- **AI Model**: LLaMA 3 via Ollama
+- **LLM API**: Groq API with multiple model support
+- **Models Available**:
+  - LLaMA 3.3 70B Versatile (Primary)
+  - LLaMA 3.1 8B Instant (Fast Fallback)
+  - Mixtral 8x7b 32k (Final Fallback)
 - **Language**: Python 3.8+
 
 ### Frontend
 - **HTML5** - Semantic markup
 - **CSS3** - Modern styling with gradients and animations
 - **JavaScript (Vanilla)** - No frameworks, pure ES6+
+- **Icons**: Font Awesome 6.0
 
 ## Prerequisites
 
 Before running this project, ensure you have:
 
 - **Python 3.8+** installed
-- **Ollama** installed and running with LLaMA 3 model
-  - Download from: https://ollama.ai
-  - Run: `ollama pull llama3`
-  - Start the service: `ollama serve`
+- **Groq API Key** - Get it from: https://console.groq.com
 - **MongoDB Atlas** account with connection string
 - **Git** for version control
 
@@ -75,21 +79,12 @@ Edit `.env` with your configuration:
 
 ```
 MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/?appName=Cluster
+GROQ_API_KEY=your-groq-api-key-from-console.groq.com
 FLASK_SECRET_KEY=your-secret-key-here-change-for-production
 FLASK_ENV=development
 ```
 
-**Important**: Never commit `.env` - it's in `.gitignore` by default.
-
-### 5. Ensure Ollama is Running
-
-In a separate terminal, start Ollama:
-
-```bash
-ollama serve
-```
-
-You should see: `Listening on 127.0.0.1:11434`
+**Important**: Never commit `.env` or `.env.example` containing real keys - they should be in `.gitignore` by default.
 
 ## Running the Project
 
@@ -103,12 +98,10 @@ python backend/app.py
 
 You'll see:
 ```
-==================================================
-🤖 CHATBOT SERVER STARTING
-==================================================
-✅ Connected to MongoDB Atlas
-✅ LLaMA 3 model found
- * Running on http://127.0.0.1:5000
+✅ MongoDB connected
+Chatbot Server Running on http://localhost:5000
+Initializing Multi-Model Handler with Groq API...
+🟢 Active: llama-3.3-70b-versatile (30 left)
 ```
 
 ### Access the Frontend
@@ -116,27 +109,20 @@ You'll see:
 Open your browser and navigate to:
 
 ```
-file:///path/to/chatbot_project/frontend/index.html
+http://localhost:5000
 ```
 
-Or serve it with a simple HTTP server:
-
-```bash
-# From the frontend directory
-python -m http.server 8000
-```
-
-Then open: `http://localhost:8000`
+The Flask app serves the frontend automatically on the home route.
 
 ## Project Structure
 
 ```
 chatbot_project/
 ├── backend/
-│   ├── app.py              # Flask main application
-│   ├── auth.py             # Authentication & session management
-│   ├── db.py               # MongoDB database operations
-│   └── model_handler.py    # LLaMA 3 integration with Ollama
+│   ├── app.py              # Flask main application & API endpoints
+│   ├── auth.py             # Authentication decorators
+│   ├── db.py               # MongoDB database operations & queries
+│   └── model_handler.py    # Groq API integration with multi-model support
 ├── frontend/
 │   ├── index.html          # Main HTML interface
 │   ├── script.js           # Chat logic & API calls
@@ -150,58 +136,73 @@ chatbot_project/
 ## API Endpoints
 
 ### Authentication
-- `POST /api/login` - Mock login endpoint
+- `POST /api/login` - User login with email and name
   - Body: `{ "email": "user@example.com", "name": "User Name" }`
-  - Response: `{ "success": true, "user": {...} }`
+  - Response: `{ "success": true, "user": { "email": "...", "name": "..." } }`
 
 - `POST /api/logout` - Logout and clear session
   - Response: `{ "success": true }`
 
 ### Chat
-- `POST /api/chat` - Send message and get bot response
-  - Body: `{ "message": "Your message here" }`
-  - Response: `{ "response": "Bot response", "message_id": "..." }`
+- `POST /api/chat` - Send message and get AI response
+  - Body: `{ "message": "Your message here", "session_id": "optional-session-id" }`
+  - Response: `{ "response": "AI response", "message_id": "..." }`
 
-- `GET /api/history` - Get user's chat history
-  - Response: `{ "history": [...] }`
+- `GET /api/history/sessions` - Get all chat sessions for logged-in user
+  - Response: `{ "sessions": { "session_id": { "first_message": "...", "timestamp": "..." } } }`
+
+- `GET /api/history/<session_id>` - Get all messages from a specific session
+  - Response: `{ "messages": [{ "role": "user|bot", "content": "..." }] }`
+
+- `POST /api/session/switch` - Switch to a different conversation session
+  - Body: `{ "session_id": "..." }`
+  - Response: `{ "success": true }`
 
 ### Feedback
-- `POST /api/feedback` - Save feedback on a message
-  - Body: `{ "message_id": "...", "rating": "good", "correctness": "correct", "length_type": "perfect" }`
+- `POST /api/feedback` - Submit feedback on a bot response
+  - Body: `{ "message_id": "...", "rating": "good|bad", "correctness": "correct|incorrect|partial", "length_type": "too_short|perfect|too_long" }`
   - Response: `{ "success": true }`
 
 ### Health
-- `GET /api/health` - Check server and LLaMA status
-  - Response: `{ "status": "ok", "llama_available": true }`
+- `GET /api/health` - Check server and active model status
+  - Response: `{ "status": "ok", "active_model": "llama-3.3-70b-versatile" }`
 
 ## Environment Variables
 
-| Variable | Description | Default |
+| Variable | Description | Example |
 |----------|-------------|---------|
-| `MONGO_URI` | MongoDB connection string | `mongodb+srv://localhost:27017/chatbot_project` |
-| `FLASK_SECRET_KEY` | Secret key for session management | `your-secret-key-here-change-this-for-production` |
-| `FLASK_ENV` | Flask environment | `development` |
+| `MONGO_URI` | MongoDB Atlas connection string | `mongodb+srv://user:pass@cluster.mongodb.net/...` |
+| `GROQ_API_KEY` | Groq API key from console.groq.com | `gsk_...` |
+| `FLASK_SECRET_KEY` | Secret key for session encryption | `your-secret-key-change-for-production` |
+| `FLASK_ENV` | Flask environment mode | `development` or `production` |
 
 ## Troubleshooting
 
-### Cannot connect to Ollama
-- Ensure Ollama is running: `ollama serve`
-- Check if it's accessible at `http://localhost:11434`
-- Try running: `ollama list` to verify LLaMA 3 is installed
+### Groq API errors
+- Verify your `GROQ_API_KEY` in `.env` is correct
+- Check if your API key is active on https://console.groq.com
+- If rate limits are hit, the system will automatically fallback to the next available model
 
 ### MongoDB connection failed
 - Verify your `MONGO_URI` in `.env` is correct
-- Check your MongoDB Atlas cluster is active
-- Ensure your IP is whitelisted in MongoDB Atlas network settings
+- Check your MongoDB Atlas cluster is active and running
+- Ensure your IP address is whitelisted in MongoDB Atlas network settings
 
-### CORS errors in browser console
+### Server fails to start
+- Make sure all dependencies are installed: `pip install -r requirements.txt`
+- Check if port 5000 is already in use
+- Verify `.env` file exists in the project root with all required variables
+
+### CORS or API errors in browser console
 - Make sure the backend is running on `http://localhost:5000`
-- Frontend should be opened from file or HTTP server
+- Check browser console for specific error messages
+- Try clearing browser cache and cookies
 
-### LLaMA 3 takes too long to respond
-- First response may take 30-60 seconds (model loading)
-- Subsequent responses are faster
-- Check available system memory (model requires ~4GB RAM)
+### Chat not responding
+- Check that Groq API key is valid
+- Verify MongoDB connection is working
+- Check the terminal output for error messages
+- Ensure you are logged in before sending messages
 
 ## Phase 2 Roadmap
 
@@ -243,4 +244,4 @@ For issues or questions, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ using LLaMA 3, Flask, and MongoDB**
+**Built with ❤️ using Groq API, LLaMA Models, Flask, and MongoDB**
