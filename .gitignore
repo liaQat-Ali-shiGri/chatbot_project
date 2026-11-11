@@ -1,15 +1,17 @@
 .env
-.env.local
-__pycache__/
+.venv/
+**/__pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.vscode/
-.idea/
-*.egg-info/
-dist/
-build/
+
+# Test and type-checker caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local logs and OS files
+*.log
 .DS_Store
+Thumbs.db
+
+# Local editor configuration
+.vscode/

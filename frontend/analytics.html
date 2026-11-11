@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - LLaMA 3 Chatbot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-basic-dist-min@3.6.0/plotly-basic.min.js"></script>
+    <style>
+        /* style.css locks the chat page to the viewport; the dashboard scrolls. */
+        html, body {
+            height: auto;
+            min-height: 100%;
+            overflow: auto;
+        }
+        body {
+            /* Same correctness colours as the graphs */
+            --correct: #0ca30c;
+            --partial: #fab219;
+            --incorrect: #d03b3b;
+            background: var(--page);
+            color: var(--ink);
+        }
+        .analytics-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .dashboard-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .dashboard-header h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            background: var(--accent);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .scope-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        .scope-bar select {
+            min-width: 240px;
+            max-width: 100%;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--line);
+            background: var(--card);
+            color: var(--ink);
+            font-size: 14px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            background: var(--row-hover);
+            color: var(--ink);
+        }
+        .status-badge:empty {
+            display: none;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 15px;
+            padding: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            min-width: 0; /* let wide tables scroll inside the card instead of stretching the grid */
+        }
+        .card h3 {
+            font-size: 15px;
+            margin-bottom: 12px;
+        }
+        .card .caption {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: -6px;
+            margin-bottom: 12px;
+        }
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .kpi-card {
+            text-align: center;
+        }
+        .kpi-card i {
+            color: var(--accent);
+        }
+        .kpi-card .kpi-value {
+            font-size: 26px;
+            font-weight: 600;
+            margin: 6px 0 2px;
+        }
+        .kpi-card .kpi-label {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .insights-card ul {
+            list-style: none;
+            display: grid;
+            gap: 8px;
+        }
+        .insights-card li {
+            display: flex;
+            gap: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        .insights-card li i {
+            color: var(--accent);
+            margin-top: 3px;
+        }
+        .section-title {
+            font-size: 18px;
+            margin: 24px 0 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            scroll-margin-top: 12px;
+        }
+        .section-caption {
+            margin: -6px 0 12px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .section-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .section-nav a {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: var(--card);
+            color: var(--ink);
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .section-nav a:hover {
+            border-color: var(--accent);
+        }
+        .section-nav i {
+            color: var(--accent);
+        }
+        #key-insights {
+            scroll-margin-top: 12px;
+        }
+
+        /* Topic-based performance (FR21): one card per AI domain */
+        .topic-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            align-items: start;
+            gap: 12px;
+        }
+        .topic-card {
+            display: grid;
+            gap: 10px;
+            align-content: start;
+        }
+        .topic-card-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+        .topic-card-head h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+        .topic-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex: none;
+        }
+        .topic-flag {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .topic-flag.best {
+            background: rgba(12, 163, 12, 0.12);
+            color: #0a7d0a;
+        }
+        .topic-flag.weak {
+            background: rgba(208, 59, 59, 0.12);
+            color: #b42f2f;
+        }
+        body.dark-theme .topic-flag.best {
+            color: #4ade80;
+        }
+        body.dark-theme .topic-flag.weak {
+            color: #f87171;
+        }
+        .topic-accuracy {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .topic-accuracy strong {
+            font-size: 28px;
+            line-height: 1;
+        }
+        .topic-accuracy span {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .topic-bar {
+            display: flex;
+            gap: 2px;
+            height: 8px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: var(--line);
+        }
+        .topic-card .correct { background: var(--correct); }
+        .topic-card .partial { background: var(--partial); }
+        .topic-card .incorrect { background: var(--incorrect); }
+        .topic-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 12px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .topic-legend i {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .topic-subjects {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .topic-subjects > span:first-child {
+            margin-right: 2px;
+        }
+        .subject-chip {
+            padding: 2px 9px;
+            border-radius: 999px;
+            background: var(--row-hover);
+            color: var(--ink);
+        }
+        /* Reply table: subject on top, its domain underneath */
+        .subject-name {
+            display: block;
+            font-weight: 600;
+        }
+        .domain-name {
+            display: block;
+            font-size: 11px;
+            color: var(--muted);
+        }
+        .topic-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+            margin: 0;
+            padding-top: 10px;
+            border-top: 1px solid var(--line);
+        }
+        .topic-stats dt {
+            font-size: 11px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        .topic-stats dd {
+            margin: 2px 0 0;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .topic-stats dd small {
+            font-weight: 500;
+            color: var(--muted);
+        }
+        .topic-empty {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px 14px;
+            margin: 12px 0 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .topic-empty > span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .topic-empty .topic-dot {
+            width: 8px;
+            height: 8px;
+        }
+        @media (max-width: 1000px) {
+            .topic-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        .charts-grid,
+        .tables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 12px;
+        }
+        .tables-grid.wide {
+            grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+            margin-bottom: 12px;
+        }
+        .chart-box {
+            position: relative;
+            height: 260px;
+        }
+        .table-scroll {
+            overflow: auto;
+            max-height: 380px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--line);
+            white-space: nowrap;
+        }
+        .data-table th {
+            position: sticky;
+            top: 0;
+            background: var(--card);
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .data-table th[data-col] {
+            cursor: pointer;
+            user-select: none;
+        }
+        .data-table th[data-col]:hover {
+            color: var(--ink);
+        }
+        .data-table th[aria-sort="ascending"]::after {
+            content: " ▲";
+        }
+        .data-table th[aria-sort="descending"]::after {
+            content: " ▼";
+        }
+        .data-table td.num,
+        .data-table th.num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .data-table td.wrap {
+            white-space: normal;
+            min-width: 220px;
+        }
+        .data-table tfoot td {
+            font-weight: 600;
+            border-bottom: none;
+        }
+        .data-table tbody tr:hover {
+            background: var(--row-hover);
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .badge-correct i { color: var(--correct); }
+        .badge-partial i { color: var(--partial); }
+        .badge-incorrect i { color: var(--incorrect); }
+        .view-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 4px 10px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .full-width {
+            margin-top: 12px;
+        }
+        .empty-state,
+        .error-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--muted);
+        }
+        .empty-state i,
+        .error-state i {
+            font-size: 40px;
+            margin-bottom: 12px;
+            color: var(--accent);
+        }
+        .method-note {
+            font-size: 12px;
+            color: var(--muted);
+            margin: 20px 0 8px;
+            line-height: 1.5;
+        }
+        #dashboard-body {
+            transition: opacity 0.2s;
+        }
+        #dashboard-body.is-loading {
+            opacity: 0.5;
+        }
+        @media (max-width: 700px) {
+            .analytics-container {
+                padding: 12px 16px;
+            }
+            .charts-grid,
+            .tables-grid,
+            .tables-grid.wide,
+            .topic-grid {
+                grid-template-columns: 1fr;
+            }
+            .scope-bar select {
+                min-width: 0;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="analytics-container">
+        <header class="dashboard-header">
+            <div>
+                <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i> Back to Chat</a>
+                <h1><i class="fas fa-chart-line"></i> Analytics Dashboard</h1>
+            </div>
+            <div class="scope-bar">
+                <label for="scope-select">Showing</label>
+                <select id="scope-select">
+                    <option value="">All sessions</option>
+                </select>
+                <span id="scope-status" class="status-badge"></span>
+            </div>
+        </header>
+
+        <div id="error-state" class="card error-state" hidden>
+            <i class="fas fa-triangle-exclamation"></i>
+            <p>Could not load analytics. Please log in again and retry.</p>
+        </div>
+
+        <div id="empty-state" class="card empty-state" hidden>
+            <i class="fas fa-comments"></i>
+            <p>No replies in this scope yet. Chat with the bot and rate its replies to see analytics here.</p>
+        </div>
+
+        <div id="dashboard-body" hidden>
+            <nav class="section-nav" aria-label="Dashboard sections">
+                <a href="#key-insights"><i class="fas fa-lightbulb"></i> Key Insights</a>
+                <a href="#topic-performance"><i class="fas fa-tags"></i> Topic-Based Performance</a>
+                <a href="#graphs"><i class="fas fa-chart-pie"></i> Graphs</a>
+                <a href="#tables"><i class="fas fa-table"></i> Tables</a>
+                <a href="#session-insights"><i class="fas fa-layer-group"></i> Session-Level Insights</a>
+            </nav>
+
+            <section class="kpi-grid" id="kpi-grid"></section>
+
+            <section class="card insights-card" id="key-insights">
+                <h3><i class="fas fa-lightbulb"></i> Key Insights</h3>
+                <ul id="insights"></ul>
+            </section>
+
+            <h2 class="section-title" id="topic-performance"><i class="fas fa-tags"></i> Topic-Based Performance</h2>
+            <p class="section-caption">How the chatbot performs in each AI domain: accuracy, how its replies were judged, ratings and response speed.</p>
+            <section class="topic-grid" id="topic-cards"></section>
+            <p class="topic-empty" id="topic-empty" hidden></p>
+
+            <h2 class="section-title" id="graphs"><i class="fas fa-chart-pie"></i> Graphs</h2>
+            <section class="charts-grid">
+                <div class="card">
+                    <h3>Topic Distribution</h3>
+                    <div class="chart-box" id="topic-chart" role="img" aria-label="Pie chart of replies per topic"></div>
+                </div>
+                <div class="card">
+                    <h3>Accuracy per Topic (%)</h3>
+                    <div class="chart-box" id="topic-accuracy-chart" role="img" aria-label="Bar chart of accuracy per topic"></div>
+                </div>
+                <div class="card">
+                    <h3>Accuracy vs Session Phase (%)</h3>
+                    <div class="chart-box" id="phase-chart" role="img" aria-label="Line chart of accuracy in the start, middle and end phases"></div>
+                </div>
+                <div class="card">
+                    <h3>Correctness per Reply</h3>
+                    <div class="chart-box" id="correctness-chart" role="img" aria-label="Stacked bar chart of reply correctness by turn number"></div>
+                </div>
+                <div class="card">
+                    <h3>Response Time Trend (s)</h3>
+                    <div class="chart-box" id="response-time-chart" role="img" aria-label="Line chart of response time per reply over time"></div>
+                </div>
+                <div class="card">
+                    <h3>Rating Distribution</h3>
+                    <div class="chart-box" id="rating-chart" role="img" aria-label="Bar chart of how often each rating was given"></div>
+                </div>
+                <div class="card">
+                    <h3>Length Preference</h3>
+                    <div class="chart-box" id="length-chart" role="img" aria-label="Pie chart of reply length feedback"></div>
+                </div>
+            </section>
+
+            <h2 class="section-title" id="tables"><i class="fas fa-table"></i> Tables</h2>
+            <section class="tables-grid wide">
+                <div class="card">
+                    <h3>Topic vs Accuracy</h3>
+                    <div class="table-scroll" id="topic-table"></div>
+                </div>
+                <div class="card">
+                    <h3>Phase-wise Accuracy</h3>
+                    <div class="table-scroll" id="phase-table"></div>
+                </div>
+            </section>
+            <section class="tables-grid">
+                <div class="card">
+                    <h3>Correctness Summary</h3>
+                    <div class="table-scroll" id="correctness-table"></div>
+                </div>
+                <div class="card">
+                    <h3>Response Time Summary</h3>
+                    <div class="table-scroll" id="response-time-table"></div>
+                </div>
+                <div class="card">
+                    <h3>Rating Distribution</h3>
+                    <div class="table-scroll" id="rating-table"></div>
+                </div>
+                <div class="card">
+                    <h3>Length Preference</h3>
+                    <div class="table-scroll" id="length-table"></div>
+                </div>
+            </section>
+
+            <section class="card full-width">
+                <h3>Reply Correctness</h3>
+                <p class="caption">Up to the 200 most recent replies in this scope, rated and unrated, newest first.</p>
+                <div class="table-scroll" id="reply-table"></div>
+            </section>
+
+            <h2 class="section-title" id="session-insights"><i class="fas fa-layer-group"></i> Session-Level Insights</h2>
+            <section class="card">
+                <p class="caption">Select a session to see its own analytics. Ended sessions have a stored final summary.</p>
+                <div class="table-scroll" id="session-table"></div>
+            </section>
+
+            <p class="method-note">
+                <strong>How metrics are computed:</strong> accuracy scores a Correct reply as 1, Partial as 0.5 and
+                Incorrect as 0, averaged over rated replies. "Fully correct" is the share of rated replies marked Correct.
+                Each reply's position in its session, from first to last, places it in the Start, Middle or End phase.
+                Topics are classified into five AI domains, plus General for anything outside them.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        if (localStorage.getItem("theme") === "dark") {
+            document.body.classList.add("dark-theme");
+        }
+        const THEME_NAME = document.body.classList.contains("dark-theme") ? "dark" : "light";
+        const BADGES = {
+            "Correct": '<span class="badge badge-correct"><i class="fas fa-circle-check"></i> Correct</span>',
+            "Partial": '<span class="badge badge-partial"><i class="fas fa-circle-half-stroke"></i> Partial</span>',
+            "Incorrect": '<span class="badge badge-incorrect"><i class="fas fa-circle-xmark"></i> Incorrect</span>'
+        };
+
+        let sessionTitles = {};
+
+        function fmt(value, suffix = "") {
+            return value === null || value === undefined ? "—" : `${value}${suffix}`;
+        }
+
+        // Safe in text and in quoted attributes.
+        function escapeHtml(text) {
+            return String(text ?? "").replace(/[&<>"']/g, ch =>
+                ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+        }
+
+        function formatDate(iso) {
+            return iso ? new Date(iso).toLocaleString() : "—";
+        }
+
+        // ============ GRAPHS (FR20) ============
+
+        // The figures are generated by the backend with plotly; the page only draws them.
+        // Their shared plotly style (template) is sent once and added to each figure here.
+        const CHART_IDS = {
+            topic_distribution: "topic-chart",
+            accuracy_per_topic: "topic-accuracy-chart",
+            accuracy_vs_phase: "phase-chart",
+            correctness_per_reply: "correctness-chart",
+            response_time_trend: "response-time-chart",
+            rating_distribution: "rating-chart",
+            length_preference: "length-chart"
+        };
+
+        function renderCharts(figures, template) {
+            for (const [key, id] of Object.entries(CHART_IDS)) {
+                try {
+                    const figure = figures[key];
+                    Plotly.react(id, figure.data, { ...figure.layout, template }, { responsive: true, displayModeBar: false });
+                } catch (error) {
+                    // Without the plotly library (e.g. offline), the tables below still show every value.
+                    console.error(`Could not draw ${key}:`, error);
+                    document.getElementById(id).innerHTML =
+                        '<p class="caption">This graph could not be drawn. Its values are in the tables below.</p>';
+                }
+            }
+        }
+
+        // ============ TABLES (FR19, FR21) ============
+
+        function renderTable(containerId, columns, rows, footer = null) {
+            const sortable = rows.length > 1;
+            const head = columns.map((col, i) => {
+                const sortAttrs = sortable && col.label
+                    ? ` data-col="${i}" tabindex="0" aria-sort="none" title="Sort by ${col.label}"` : "";
+                return `<th class="${col.num ? "num" : ""}"${sortAttrs}>${col.label}</th>`;
+            }).join("");
+            const cell = (col, row) => {
+                const sortKey = col.sort ? ` data-sort="${escapeHtml(col.sort(row))}"` : "";
+                return `<td class="${col.num ? "num" : ""} ${col.wrap ? "wrap" : ""}"${sortKey}>${col.value(row)}</td>`;
+            };
+            const body = rows.length
+                ? rows.map(row => `<tr>${columns.map(col => cell(col, row)).join("")}</tr>`).join("")
+                : `<tr><td colspan="${columns.length}">No data yet.</td></tr>`;
+            const foot = footer ? `<tfoot>${footer.map(row => `<tr>${columns.map(col => cell(col, row)).join("")}</tr>`).join("")}</tfoot>` : "";
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<table class="data-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody>${foot}</table>`;
+            if (sortable) makeSortable(container.querySelector("table"));
+        }
+
+        // Interactive tables: click (or press Enter on) a column heading to sort by it; again to reverse.
+        function makeSortable(table) {
+            const sortValue = td => {
+                if (td.dataset.sort !== undefined) return td.dataset.sort;
+                const text = td.textContent.trim();
+                if (text === "—") return -Infinity;
+                return /^-?\d/.test(text) ? parseFloat(text) : text.toLowerCase();
+            };
+            const sortBy = th => {
+                const column = Number(th.dataset.col);
+                const ascending = th.getAttribute("aria-sort") !== "ascending";
+                table.querySelectorAll("th[data-col]").forEach(other => other.setAttribute("aria-sort", "none"));
+                th.setAttribute("aria-sort", ascending ? "ascending" : "descending");
+                const tbody = table.tBodies[0];
+                const rows = [...tbody.rows].sort((a, b) => {
+                    const x = sortValue(a.cells[column]), y = sortValue(b.cells[column]);
+                    const order = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y));
+                    return ascending ? order : -order;
+                });
+                tbody.append(...rows);
+            };
+            table.querySelectorAll("th[data-col]").forEach(th => {
+                th.addEventListener("click", () => sortBy(th));
+                th.addEventListener("keydown", event => { if (event.key === "Enter") sortBy(th); });
+            });
+        }
+
+        const PERFORMANCE_COLUMNS = [
+            { label: "Replies", num: true, value: r => r.replies },
+            { label: "Correct", num: true, value: r => r.correct },
+            { label: "Partial", num: true, value: r => r.partial },
+            { label: "Incorrect", num: true, value: r => r.incorrect },
+            { label: "Accuracy", num: true, value: r => fmt(r.accuracy, "%") },
+            { label: "Avg Rating", num: true, value: r => fmt(r.avg_rating) },
+            { label: "Avg Time", num: true, value: r => fmt(r.avg_response_time, " s") }
+        ];
+
+        function distributionColumns(label) {
+            return [
+                { label, value: r => r.label },
+                { label: "Count", num: true, value: r => r.count },
+                { label: "Share", num: true, value: r => fmt(r.percent, "%") }
+            ];
+        }
+
+        function renderTables(data) {
+            const t = data.tables;
+            renderTable("topic-table", [{ label: "Topic", value: r => escapeHtml(r.topic) }, ...PERFORMANCE_COLUMNS], t.topic);
+            renderTable("phase-table", [{ label: "Phase", value: r => r.phase }, ...PERFORMANCE_COLUMNS], t.phase);
+
+            const c = data.correctness;
+            renderTable("correctness-table", distributionColumns("Result"), [
+                { label: BADGES["Correct"], count: c.correct, percent: c.correct_pct },
+                { label: BADGES["Partial"], count: c.partial, percent: c.partial_pct },
+                { label: BADGES["Incorrect"], count: c.incorrect, percent: c.incorrect_pct },
+                { label: "Not rated yet", count: c.unrated, percent: null }
+            ], [
+                { label: "Overall correctness (Correct only)", count: c.rated, percent: c.correct_pct },
+                { label: "Accuracy (Partial = ½)", count: c.rated, percent: c.accuracy }
+            ]);
+
+            const rt = t.response_time;
+            renderTable("response-time-table", [
+                { label: "Statistic", value: r => r[0] },
+                { label: "Value", num: true, value: r => r[1] }
+            ], [
+                ["Replies timed", rt.count],
+                ["Mean", fmt(rt.mean, " s")],
+                ["Median", fmt(rt.median, " s")],
+                ["Fastest", fmt(rt.min, " s")],
+                ["Slowest", fmt(rt.max, " s")],
+                ["Standard deviation", fmt(rt.std, " s")],
+                ["90th percentile", fmt(rt.p90, " s")]
+            ]);
+
+            renderTable("rating-table", distributionColumns("Rating"), t.rating,
+                [{ label: `Average: ${fmt(data.kpis.avg_rating)} / 4`, count: data.kpis.rated, percent: null }]);
+            renderTable("length-table", distributionColumns("Length"), t.length);
+
+            renderTable("reply-table", [
+                { label: "Time", value: r => formatDate(r.timestamp), sort: r => r.timestamp || "" },
+                { label: "Session", value: r => escapeHtml(sessionTitles[r.session_id] || r.session_id) },
+                { label: "Turn", num: true, value: r => r.turn },
+                { label: "Phase", value: r => r.phase },
+                { label: "Topic", value: r => `<span class="subject-name">${escapeHtml(r.subject)}</span>` +
+                    `<span class="domain-name">${escapeHtml(r.topic)}</span>` },
+                { label: "Question", wrap: true, value: r => escapeHtml(r.question) },
+                { label: "Rating", num: true, value: r => fmt(r.rating) },
+                { label: "Correctness", value: r => BADGES[r.correctness] || "Not rated" },
+                { label: "Length", value: r => fmt(r.length_type) },
+                { label: "Response", num: true, value: r => fmt(r.response_time, " s") }
+            ], t.replies);
+        }
+
+        // ============ TOPIC-BASED PERFORMANCE (FR21) ============
+
+        function renderTopicPerformance(data) {
+            const rows = Object.fromEntries(data.tables.topic.map(row => [row.topic, row]));
+            const FLAGS = {
+                best: '<span class="topic-flag best"><i class="fas fa-arrow-up"></i> Strongest</span>',
+                weak: '<span class="topic-flag weak"><i class="fas fa-arrow-down"></i> Weakest</span>'
+            };
+
+            // Topics with replies get a card; the rest are named on one line below.
+            const unused = data.topics.filter(topic => !rows[topic]);
+            document.getElementById("topic-empty").innerHTML = unused.length
+                ? `<i class="fas fa-circle-info"></i> No replies yet on: ${unused.map(topic =>
+                    `<span><span class="topic-dot" style="background:${data.topic_colors[topic]}"></span>${escapeHtml(topic)}</span>`).join("")}`
+                : "";
+            document.getElementById("topic-empty").hidden = !unused.length;
+
+            document.getElementById("topic-cards").innerHTML = data.topics.filter(topic => rows[topic]).map(topic => {
+                const row = rows[topic];
+                const head = `<div class="topic-card-head"><span class="topic-dot" style="background:${data.topic_colors[topic]}"></span><h3>${escapeHtml(topic)}</h3>`;
+                // Strongest and weakest are marked by the backend, with the same rule as the Key Insights.
+                const flag = FLAGS[row.flag] || "";
+
+                const share = data.kpis.replies ? Math.round(row.replies / data.kpis.replies * 100) : 0;
+                const bar = row.rated
+                    ? ["correct", "partial", "incorrect"].filter(key => row[key]).map(key => `<span class="${key}" style="flex:${row[key]}"></span>`).join("")
+                    : "";
+                return `
+                    <article class="card topic-card">
+                        ${head}${flag}</div>
+                        <div class="topic-accuracy"><strong>${fmt(row.accuracy, "%")}</strong><span>${row.rated ? `accuracy over ${row.rated} rated ${row.rated === 1 ? "reply" : "replies"}` : "not rated yet"}</span></div>
+                        <div class="topic-bar" role="img" aria-label="${row.correct} correct, ${row.partial} partial, ${row.incorrect} incorrect">${bar}</div>
+                        <div class="topic-legend">
+                            <span><i class="correct"></i>${row.correct} correct</span>
+                            <span><i class="partial"></i>${row.partial} partial</span>
+                            <span><i class="incorrect"></i>${row.incorrect} incorrect</span>
+                        </div>
+                        <div class="topic-subjects"><span>Asked about</span>${(row.subjects || []).map(subject =>
+                            `<span class="subject-chip">${escapeHtml(subject)}</span>`).join("")}</div>
+                        <dl class="topic-stats">
+                            <div><dt>Replies</dt><dd>${row.replies} <small>(${share}%)</small></dd></div>
+                            <div><dt>Avg rating</dt><dd>${fmt(row.avg_rating, " <small>/ 4</small>")}</dd></div>
+                            <div><dt>Avg time</dt><dd>${fmt(row.avg_response_time, " s")}</dd></div>
+                        </dl>
+                    </article>`;
+            }).join("");
+        }
+
+        function renderSessionTable(sessions, selectedId) {
+            const performance = label => PERFORMANCE_COLUMNS.find(col => col.label === label);
+            renderTable("session-table", [
+                { label: "Session", wrap: true, value: r => escapeHtml(r.title) },
+                { label: "Started", value: r => formatDate(r.started), sort: r => r.started || "" },
+                performance("Replies"),
+                { label: "Rated", num: true, value: r => r.rated },
+                ...["Accuracy", "Avg Rating", "Avg Time"].map(performance),
+                { label: "Main Topic", value: r => escapeHtml(r.dominant_topic) },
+                { label: "Topic Switches", num: true, value: r => r.topic_switches },
+                { label: "Status", value: r => r.status === "Ended" ? '<i class="fas fa-flag-checkered"></i> Ended' : "Active" },
+                { label: "", value: r => r.session_id === selectedId ? "Selected" :
+                    `<button class="view-btn" data-session="${escapeHtml(r.session_id)}">View</button>` }
+            ], sessions);
+            document.querySelectorAll("#session-table .view-btn").forEach(button => {
+                button.onclick = () => selectScope(button.dataset.session);
+            });
+        }
+
+        // ============ DASHBOARD (FR21) ============
+
+        function renderKpis(k) {
+            const cards = [
+                ["fa-layer-group", fmt(k.sessions), "Sessions"],
+                ["fa-robot", fmt(k.replies), "Replies"],
+                ["fa-star-half-stroke", fmt(k.rated), "Rated Replies"],
+                ["fa-bullseye", fmt(k.accuracy, "%"), "Accuracy"],
+                ["fa-circle-check", fmt(k.correct_pct, "%"), "Fully Correct"],
+                ["fa-star", fmt(k.avg_rating, " / 4"), "Avg Rating"],
+                ["fa-stopwatch", fmt(k.avg_response_time, " s"), "Avg Response Time"]
+            ];
+            document.getElementById("kpi-grid").innerHTML = cards.map(([icon, value, label]) => `
+                <div class="card kpi-card">
+                    <i class="fas ${icon}"></i>
+                    <div class="kpi-value">${value}</div>
+                    <div class="kpi-label">${label}</div>
+                </div>
+            `).join("");
+        }
+
+        function renderScope(data) {
+            const select = document.getElementById("scope-select");
+            const selected = data.scope.session_id || "";
+            select.innerHTML = '<option value="">All sessions</option>' + data.sessions.map(s => {
+                const ended = s.status === "Ended" ? " · Ended" : "";
+                const date = new Date(s.started).toLocaleDateString();
+                return `<option value="${escapeHtml(s.session_id)}">${escapeHtml(s.title)} (${date}${ended})</option>`;
+            }).join("");
+            select.value = selected;
+
+            const status = document.getElementById("scope-status");
+            if (!data.scope.session_id) {
+                status.innerHTML = "";
+            } else if (data.scope.status === "Ended") {
+                status.innerHTML = `<i class="fas fa-flag-checkered"></i> Ended ${formatDate(data.scope.ended_at)} · final summary stored`;
+            } else {
+                status.innerHTML = '<i class="fas fa-circle-play"></i> Active session';
+            }
+        }
+
+        async function loadDashboard(sessionId) {
+            const body = document.getElementById("dashboard-body");
+            body.classList.add("is-loading");
+            try {
+                const params = new URLSearchParams({ theme: THEME_NAME });
+                if (sessionId) params.set("session_id", sessionId);
+                const response = await fetch(`/api/analytics/dashboard?${params}`, { credentials: "include" });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+
+                // A chat without replies yet (e.g. a new chat) is shown as all sessions; keep the address in step.
+                if (sessionId && !data.scope.session_id) setScopeUrl("");
+                sessionTitles = Object.fromEntries(data.sessions.map(s => [s.session_id, s.title]));
+                renderScope(data);
+
+                document.getElementById("error-state").hidden = true;
+                document.getElementById("empty-state").hidden = !data.empty;
+                body.hidden = data.empty;
+                if (data.empty) return;
+
+                renderKpis(data.kpis);
+                document.getElementById("insights").innerHTML = data.insights.length
+                    ? data.insights.map(text => `<li><i class="fas fa-circle-info"></i><span>${escapeHtml(text)}</span></li>`).join("")
+                    : "<li>Rate a few replies to unlock insights.</li>";
+                renderTopicPerformance(data);
+                renderCharts(data.charts, data.chart_template);
+                renderTables(data);
+                renderSessionTable(data.sessions, data.scope.session_id);
+            } catch (error) {
+                console.error("Error loading analytics:", error);
+                body.hidden = true;
+                document.getElementById("error-state").hidden = false;
+            } finally {
+                body.classList.remove("is-loading");
+            }
+        }
+
+        function setScopeUrl(sessionId) {
+            const url = new URL(window.location.href);
+            if (sessionId) {
+                url.searchParams.set("session_id", sessionId);
+            } else {
+                url.searchParams.delete("session_id");
+            }
+            history.replaceState(null, "", url);
+        }
+
+        function selectScope(sessionId) {
+            setScopeUrl(sessionId);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            loadDashboard(sessionId);
+        }
+
+        document.getElementById("scope-select").onchange = event => selectScope(event.target.value);
+
+        loadDashboard(new URLSearchParams(window.location.search).get("session_id"));
+    </script>
+</body>
+</html>

@@ -3,65 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLaMA 3 Chatbot - CS619 Project</title>
-    <link rel="stylesheet" href="style.css">
+    <title>LLaMA 3 Chatbot</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Login Section -->
-        <div id="login-section" class="login-container">
-            <div class="login-card">
-                <h1>🤖 LLaMA 3 Chatbot</h1>
-                <p>AI-Powered Conversational Assistant</p>
-                <button id="google-login" class="login-btn">
-                    🚀 Enter Chat
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-robot" style="color: #4caf50;"></i> LLaMA 3</h2>
+                <p>AI Chatbot</p>
+                <button id="theme-toggle" class="theme-toggle-btn">
+                    <i class="fas fa-moon"></i>
                 </button>
-                <small class="login-note">Phase 1: Mock Login (real Google OAuth in Phase 2)</small>
             </div>
-        </div>
-
-        <!-- Chat Section -->
-        <div id="chat-section" class="chat-container" style="display:none;">
+            
+            <button id="new-chat-btn" class="new-chat-btn">
+                <i class="fas fa-plus-circle"></i> New Chat
+            </button>
+            
+            <div class="chat-history">
+                <h3><i class="fas fa-history"></i> Chat History</h3>
+                <div id="history-list">
+                    <div class="history-item active" data-session="current">
+                        <i class="fas fa-comment"></i> Current Chat
+                    </div>
+                </div>
+            </div>
+            
+            <div class="analytics-link-container">
+                <div class="analytics-item" id="analytics-link">
+                    <i class="fas fa-chart-line"></i> Analytics Dashboard
+                </div>
+            </div>
+            
+            <div class="user-info-sidebar">
+                <div class="user-avatar">
+                    <i class="fas fa-user-circle"></i>
+                </div>
+                <div class="user-details">
+                    <span id="sidebar-user-name">Guest</span>
+                    <small id="sidebar-user-email">Not logged in</small>
+                </div>
+                <button id="sidebar-logout" class="logout-side-btn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Main Chat Area -->
+        <main class="chat-main">
             <div class="chat-header">
-                <h2>🤖 LLaMA 3 Assistant</h2>
-                <button id="logout-btn" class="logout-btn">Logout</button>
+                <h1><i class="fas fa-comments"></i> AI Chat Assistant</h1>
+                <button id="end-session-btn" class="end-session-btn" title="End this session and save its analytics summary" aria-label="End Session">
+                    <i class="fas fa-flag-checkered"></i> <span class="btn-label">End Session</span>
+                </button>
             </div>
             
-            <div id="chat-box" class="chat-box">
-                <div class="message bot">
-                    <strong>Bot:</strong> Hello! I'm your LLaMA 3 chatbot. Ask me anything!
+            <div id="chat-messages" class="chat-messages">
+                <div class="welcome-message">
+                    <i class="fas fa-robot" style="font-size: 48px; color: #4caf50;"></i>
+                    <p>Please login to start chatting with LLaMA 3.</p>
                 </div>
             </div>
             
-            <div class="chat-input-area">
-                <input type="text" id="user-input" placeholder="Type your message here..." class="chat-input">
-                <button id="send-btn" class="send-btn">Send</button>
+            <div class="chat-input-container">
+                <textarea id="message-input" placeholder="Type your message..." rows="2"></textarea>
+                <button id="send-btn" class="send-btn" disabled>
+                    <i class="fas fa-paper-plane"></i> Send
+                </button>
             </div>
-            
-            <!-- Feedback Panel -->
-            <div class="feedback-panel">
-                <p><strong>Rate this response:</strong></p>
-                <div class="rating-buttons">
-                    <button class="rating-btn" data-rating="good">👍 Good</button>
-                    <button class="rating-btn" data-rating="bad">👎 Bad</button>
-                </div>
-                <div class="feedback-options">
-                    <select id="correctness">
-                        <option value="correct">Correct</option>
-                        <option value="partial">Partially Correct</option>
-                        <option value="incorrect">Incorrect</option>
-                    </select>
-                    <select id="length-type">
-                        <option value="short">Too Short</option>
-                        <option value="perfect">Just Right</option>
-                        <option value="long">Too Long</option>
-                    </select>
-                    <button id="submit-feedback" class="feedback-submit">Submit Feedback</button>
-                </div>
-            </div>
-        </div>
+        </main>
     </div>
     
-    <script src="script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>
