@@ -38,7 +38,8 @@ HOW TO RUN:
 3. Install Ollama (https://ollama.com) and download LLaMA 3:
    ollama pull llama3
 
-4. Copy .env.example to .env and fill in your values (never commit or submit .env):
+4. Copy .env.example to .env and fill in your values (never commit .env to git;
+   the submitted archive already includes a ready .env, so steps 4 and 5 can be skipped):
    AI_MODE=ollama                  ollama = local LLaMA 3 (the project requirement),
                                    groq = Groq API alternative (not LLaMA 3, see below)
    MONGO_URI=...                   MongoDB Atlas connection string
